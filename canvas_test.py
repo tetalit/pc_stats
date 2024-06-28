@@ -124,7 +124,29 @@ canvas_disk.configure(yscrollcommand=my_scrollbar.set)
 
 partitions = psutil.disk_partitions()
 
-# canvas_disk.create_text(50,10,text=f"=== Device: {partitions.device} ===")
-# canvas_disk.create_text(50, 30, text=f"  Mountpoint: {partitions.mountpoint}")
+height_disk_canvas = 10
+for partition in partitions:
+    canvas_disk.create_text(50, height_disk_canvas,text=f"=== Device: {partition.device} ===")
+    height_disk_canvas += 20
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Mountpoint: {partition.mountpoint}")
+    height_disk_canvas += 20
+    canvas_disk.create_text(50, height_disk_canvas)
+    height_disk_canvas += 20
+    canvas_disk.create_text(60, height_disk_canvas, text=f"  File system type: {partition.fstype}")
+    height_disk_canvas += 20
+    partition_usage = psutil.disk_usage(partition.mountpoint)
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Total Size: {get_size(partition_usage.total)}")
+    height_disk_canvas += 20
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Used: {get_size(partition_usage.used)}")
+    height_disk_canvas += 20
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Free: {get_size(partition_usage.free)}")
+    height_disk_canvas += 20
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Percentage: {partition_usage.percent}%")
+    height_disk_canvas += 20
+    disk_io = psutil.disk_io_counters()
+    canvas_disk.create_text(60, height_disk_canvas, text=f"Total read: {get_size(disk_io.read_bytes)}")
+    height_disk_canvas += 20
+    canvas_disk.create_text(60, height_disk_canvas, text=f"Total write: {get_size(disk_io.write_bytes)}")
+    height_disk_canvas += 20
 
 root.mainloop()
