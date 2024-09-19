@@ -5,6 +5,7 @@ import psutil
 import platform
 import GPUtil
 from datetime import datetime
+from GPUtil import GPU
 from tabulate import tabulate
 
 def get_size(bytes, suffix="B"):
@@ -17,6 +18,7 @@ def get_size(bytes, suffix="B"):
 root = tk.Tk()
 root.title('PC info')
 root.geometry('300x300')
+root.configure(bg="#26242f")
 
 # Create NoteBook
 book = ttk.Notebook(root)
@@ -30,14 +32,14 @@ ram_info = tk.Frame(book)
 disks_info = tk.Frame(book)
 
 # put the main frame into notebook
-book.add(OS_info, text='OS')
+book.add(OS_info, text='OS',)
 book.add(cpu_info, text='CPU')
 book.add(gpu_info, text="GPU")
 book.add(ram_info, text="RAM")
 book.add(disks_info, text="DISK")
 
 # Create canvas inside main frame
-canvas_os = tk.Canvas(OS_info)
+canvas_os = tk.Canvas(OS_info, bg="#26242f")
 canvas_os.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 # Create ScrollBar inside main frame
@@ -46,15 +48,15 @@ my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 canvas_os.configure(yscrollcommand=my_scrollbar.set)
 
 uname = platform.uname()
-canvas_os.create_text(50,10,text=f"System: {uname.system}")
-canvas_os.create_text(87,30,text=f"Node name: {uname.node}")
-canvas_os.create_text(32,50,text=f"Release: {uname.release}")
-canvas_os.create_text(53,70,text=f"Version: {uname.version}")
+canvas_os.create_text(50,10,text=f"System: {uname.system}", fill="white")
+canvas_os.create_text(87,30,text=f"Node name: {uname.node}", fill="white")
+canvas_os.create_text(32,50,text=f"Release: {uname.release}", fill="white")
+canvas_os.create_text(53,70,text=f"Version: {uname.version}", fill="white")
 boot_time_timestamp = psutil.boot_time()
 bt = datetime.fromtimestamp(boot_time_timestamp)
-canvas_os.create_text(80,90,text=f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}")
+canvas_os.create_text(80,90,text=f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}", fill="white")
 
-canvas_cpu = tk.Canvas(cpu_info)
+canvas_cpu = tk.Canvas(cpu_info, bg="#26242f")
 canvas_cpu.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 my_scrollbar = ttk.Scrollbar(cpu_info, orient=tk.VERTICAL, command=canvas_cpu.yview)
 canvas_cpu.pack(side=tk.RIGHT, fill=tk.Y)
@@ -62,12 +64,12 @@ my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 canvas_cpu.configure(yscrollcommand=my_scrollbar.set)
 
 cpufreq = psutil.cpu_freq()
-canvas_cpu.create_text(50, 10,text=f"Physical cores: {psutil.cpu_count(logical=False)}")
-canvas_cpu.create_text(40,30,text=f"Total cores: {psutil.cpu_count(logical=True)}")
-canvas_cpu.create_text(54,50,text=f"Max Frequency: {cpufreq.max:.2f}Mhz")
+canvas_cpu.create_text(50, 10,text=f"Physical cores: {psutil.cpu_count(logical=False)}", fill="white")
+canvas_cpu.create_text(40,30,text=f"Total cores: {psutil.cpu_count(logical=True)}", fill="white")
+canvas_cpu.create_text(54,50,text=f"Max Frequency: {cpufreq.max:.2f}Mhz", fill="white")
 # canvas_cpu.create_text(50,70,text=f"Total CPU Usage: {psutil.cpu_percent()}%")
 
-canvas_gpu = tk.Canvas(gpu_info)
+canvas_gpu = tk.Canvas(gpu_info, bg="#26242f")
 canvas_gpu.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 my_scrollbar = ttk.Scrollbar(gpu_info, orient=tk.VERTICAL, command=canvas_gpu.yview)
@@ -76,6 +78,7 @@ canvas_gpu.configure(yscrollcommand=my_scrollbar.set)
 
 gpus = GPUtil.getGPUs()
 list_gpus = []
+gpu: GPU
 for gpu in gpus:
     # get the GPU id
     gpu_id = gpu.id
@@ -96,11 +99,11 @@ for gpu in gpus:
         gpu_id, gpu_name, gpu_load, gpu_free_memory, gpu_used_memory,
         gpu_total_memory, gpu_temperature, gpu_uuid
     ))
-canvas_gpu.create_text(70,10, text=f"GPU name: {gpu.name}")
-canvas_gpu.create_text(70,30, text=f"Total memory: {gpu.memoryTotal}MB")
-canvas_gpu.create_text(142,50,text=f"UUID: {gpu.uuid}")
+canvas_gpu.create_text(70,10, text=f"GPU name: {gpu.name}", fill="white")
+canvas_gpu.create_text(70,30, text=f"Total memory: {gpu.memoryTotal}MB", fill="white")
+canvas_gpu.create_text(142,50,text=f"UUID: {gpu.uuid}", fill="white")
 
-canvas_ram = tk.Canvas(ram_info)
+canvas_ram = tk.Canvas(ram_info, bg="#26242f")
 canvas_ram.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 # Create ScrollBar inside main frame
@@ -110,11 +113,11 @@ canvas_ram.configure(yscrollcommand=my_scrollbar.set)
 
 svmem = psutil.virtual_memory()
 
-canvas_ram.create_text(40,10,text=f"Total: {get_size(svmem.total)}")
-canvas_ram.create_text(50,30,text=f"Available: {get_size(svmem.available)}")
-canvas_ram.create_text(40,50,text=f"Used: {get_size(svmem.used)}")
+canvas_ram.create_text(40,10,text=f"Total: {get_size(svmem.total)}", fill="white")
+canvas_ram.create_text(50,30,text=f"Available: {get_size(svmem.available)}", fill="white")
+canvas_ram.create_text(40,50,text=f"Used: {get_size(svmem.used)}", fill="white")
 
-canvas_disk = tk.Canvas(disks_info)
+canvas_disk = tk.Canvas(disks_info, bg="#26242f")
 canvas_disk.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 # Create ScrollBar inside main frame
@@ -126,27 +129,28 @@ partitions = psutil.disk_partitions()
 
 height_disk_canvas = 10
 for partition in partitions:
-    canvas_disk.create_text(50, height_disk_canvas,text=f"=== Device: {partition.device} ===")
+    canvas_disk.create_text(50, height_disk_canvas,text=f"=== Device: {partition.device} ===", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(50, height_disk_canvas, text=f"  Mountpoint: {partition.mountpoint}")
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Mountpoint: {partition.mountpoint}", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(50, height_disk_canvas)
+    canvas_disk.create_text(50, height_disk_canvas, fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(60, height_disk_canvas, text=f"  File system type: {partition.fstype}")
+    canvas_disk.create_text(60, height_disk_canvas, text=f"  File system type: {partition.fstype}", fill="white")
     height_disk_canvas += 20
     partition_usage = psutil.disk_usage(partition.mountpoint)
-    canvas_disk.create_text(50, height_disk_canvas, text=f"  Total Size: {get_size(partition_usage.total)}")
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Total Size: {get_size(partition_usage.total)}", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(50, height_disk_canvas, text=f"  Used: {get_size(partition_usage.used)}")
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Used: {get_size(partition_usage.used)}", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(50, height_disk_canvas, text=f"  Free: {get_size(partition_usage.free)}")
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Free: {get_size(partition_usage.free)}", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(50, height_disk_canvas, text=f"  Percentage: {partition_usage.percent}%")
+    canvas_disk.create_text(50, height_disk_canvas, text=f"  Percentage: {partition_usage.percent}%", fill="white")
     height_disk_canvas += 20
     disk_io = psutil.disk_io_counters()
-    canvas_disk.create_text(60, height_disk_canvas, text=f"Total read: {get_size(disk_io.read_bytes)}")
+    canvas_disk.create_text(60, height_disk_canvas, text=f"Total read: {get_size(disk_io.read_bytes)}", fill="white")
     height_disk_canvas += 20
-    canvas_disk.create_text(60, height_disk_canvas, text=f"Total write: {get_size(disk_io.write_bytes)}")
+    canvas_disk.create_text(60, height_disk_canvas, text=f"Total write: {get_size(disk_io.write_bytes)}", fill="white")
     height_disk_canvas += 20
+
 
 root.mainloop()
