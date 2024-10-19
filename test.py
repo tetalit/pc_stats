@@ -1,5 +1,5 @@
 import time
-
+import socket
 import psutil
 import platform
 #import GPUtil
@@ -114,4 +114,45 @@ for gpu in gpus:
 print(tabulate(list_gpus, headers=("id", "name", "load", "free memory", "used memory", "total memory",
                                    "temperature", "uuid")))
 
-time.sleep(100)
+def get_system_info():
+    info = {}
+    uname = platform.uname()
+    info['System'] = uname.system
+    # info['Node name'] = uname.node
+    # info['Release'] = uname.release
+    # info['Version'] = uname.version
+    # info['Machine'] = uname.machine
+    info["Physical cores:"] = psutil.cpu_count(logical=False)
+
+    boot_time_timestamp = psutil.boot_time()
+    bt = datetime.fromtimestamp(boot_time_timestamp)
+    info['Boot Time'] = f"{bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
+
+    info['CPU Cores'] = {
+        'Physical': psutil.cpu_count(logical=False),
+        'Total': psutil.cpu_count(logical=True),
+        'Usage': psutil.cpu_percent()
+    }
+
+    svmem = psutil.virtual_memory()
+    info['Memory'] = {
+        'Total': svmem.total,
+        'Available': svmem.available,
+        'Used': svmem.used,
+        'Percentage': svmem.percent
+    }
+
+    return info
+
+def send_udp_message(message, server_address):
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.sendto(message.encode('utf-8'), server_address)
+    udp_socket.close()
+
+if __name__ == "__main__":
+    server_address = ('192.168.0.150', 12345)
+    while True:
+        system_info = get_system_info()
+        message = str(system_info)
+        send_udp_message(message, server_address)
+        time.sleep(100)  # Отправка данных каждые 10 секунд
