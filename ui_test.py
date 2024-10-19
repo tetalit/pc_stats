@@ -15,9 +15,11 @@ def get_size(bytes, suffix="B"):
             return f"{bytes:.2f}{unit}{suffix}"
         bytes /= factor
 
+
+
 root = tk.Tk()
 root.title('PC info')
-root.geometry('300x300')
+root.geometry('400x300')
 # root.configure(bg="#26242f")
 
 # Create NoteBook
@@ -151,6 +153,5 @@ for partition in partitions:
     height_disk_canvas += 20
     canvas_disk.create_text(60, height_disk_canvas, text=f"Total write: {get_size(disk_io.write_bytes)}")
     height_disk_canvas += 20
-
 
 root.mainloop()
