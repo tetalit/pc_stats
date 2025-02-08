@@ -116,31 +116,59 @@ print(tabulate(list_gpus, headers=("id", "name", "load", "free memory", "used me
 
 def get_system_info():
     info = {}
-    uname = platform.uname()
-    info['System'] = uname.system
+    # uname = platform.uname()
+    # info['System'] = uname.system
     # info['Node name'] = uname.node
     # info['Release'] = uname.release
     # info['Version'] = uname.version
     # info['Machine'] = uname.machine
-    info["Physical cores:"] = psutil.cpu_count(logical=False)
 
     boot_time_timestamp = psutil.boot_time()
     bt = datetime.fromtimestamp(boot_time_timestamp)
-    info['Boot Time'] = f"{bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
+    # info['Boot Time'] = f"{bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
 
-    info['CPU Cores'] = {
+    info['CPU'] = {
         'Physical': psutil.cpu_count(logical=False),
         'Total': psutil.cpu_count(logical=True),
-        'Usage': psutil.cpu_percent()
+        'Usage': psutil.cpu_percent(),
+        'Max Frequency': psutil.cpu_freq().max,
+        'Current Frequency': psutil.cpu_freq().current
     }
 
     svmem = psutil.virtual_memory()
-    info['Memory'] = {
+    info['RAM'] = {
         'Total': svmem.total,
         'Available': svmem.available,
         'Used': svmem.used,
         'Percentage': svmem.percent
     }
+
+    gpus = GPUtil.getGPUs()
+    list_gpus = []
+    for gpu in gpus:
+        list_gpus.append({
+            'Name': gpu.name,
+            'Total memory': gpu.memoryTotal,
+            'Temperature': gpu.temperature,
+            'Load': gpu.load * 100
+        })
+    info['GPU'] = list_gpus
+
+    # partitions = psutil.disk_partitions()
+    # info['Disk'] = {
+    # for partition in partitions:
+    #     print(f"=== Device: {partition.device} ===")
+    # print(f"  Mountpoint: {partition.mountpoint}")
+    # print(f"  File system type: {partition.fstype}")
+    # try:
+    #     partition_usage = psutil.disk_usage(partition.mountpoint)
+    # except PermissionError:
+    #     continue
+    # print(f"  Total Size: {get_size(partition_usage.total)}")
+    # print(f"  Used: {get_size(partition_usage.used)}")
+    # print(f"  Free: {get_size(partition_usage.free)}")
+    # print(f"  Percentage: {partition_usage.percent}%")
+    # }
 
     return info
 
@@ -153,6 +181,9 @@ if __name__ == "__main__":
     server_address = ('192.168.0.150', 12345)
     while True:
         system_info = get_system_info()
-        message = str(system_info)
-        send_udp_message(message, server_address)
-        time.sleep(100)  # Отправка данных каждые 10 секунд
+        send_udp_message(str(system_info['CPU']), server_address)
+        time.sleep(0.1)
+        send_udp_message(str(system_info['RAM']), server_address)
+        time.sleep(0.1)
+        send_udp_message(str(system_info['GPU']), server_address)
+        time.sleep(5)
