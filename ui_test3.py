@@ -412,3 +412,6 @@ def update_stats():
 
 update_stats()
 root.mainloop()
+
+# чтобы скомпилить файл
+# pyinstaller --onefile --add-data "settings.txt;." pc_info.py
