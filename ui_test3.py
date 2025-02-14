@@ -175,7 +175,7 @@ os_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 cpu_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 gpu_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 ram_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=5)
-disk_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
+disk_frame.grid(row=2, column=0, columnspan=1, sticky="nsew", padx=5, pady=5)
 
 # --- OS Information ---
 uname = platform.uname()
