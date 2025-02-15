@@ -198,12 +198,18 @@ cpufreq = psutil.cpu_freq()
 cpu_cores = psutil.cpu_count(logical=False)
 total_cores = psutil.cpu_count(logical=True)
 cpu_usage_value = psutil.cpu_percent(interval=1)
+cpu_name = platform.processor()  # Получаем имя процессора
 
 # Создаем два внутренних фрейма: данные слева, график справа
 cpu_data_frame = tk.Frame(cpu_frame, bg=current_bg)
 cpu_graph_frame = tk.Frame(cpu_frame, bg=current_bg)
 cpu_data_frame.pack(side="left", fill="both", expand=True)
 cpu_graph_frame.pack(side="right", fill="both", expand=True)
+
+# Добавляем имя процессора
+tk.Label(cpu_data_frame, text=f"CPU Name: {cpu_name}", bg=current_bg, fg=current_fg,
+         font=("Helvetica", current_font_size))\
+    .pack(anchor="w", padx=5, pady=3)
 
 tk.Label(cpu_data_frame, text=f"Physical cores: {cpu_cores}", bg=current_bg, fg=current_fg,
          font=("Helvetica", current_font_size))\
@@ -330,39 +336,53 @@ ram_canvas.get_tk_widget().pack(anchor="w", padx=5, pady=5)
 
 # --- Disk Information ---
 partitions = psutil.disk_partitions()
-for partition in partitions:
-    tk.Label(disk_frame, text=f"=== Device: {partition.device} ===", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+# Очищаем диск-фрейм, если требуется (если обновляем динамически)
+for idx, partition in enumerate(partitions):
+    # Создаем отдельный фрейм для каждого диска (столбец)
+    disk_subframe = tk.Frame(disk_frame, bg=current_bg)
+    # Размещаем фрейм в строке 0, в столбце idx
+    disk_subframe.grid(row=0, column=idx, sticky="nsew", padx=5, pady=5)
+    # Задаем равномерное распределение столбцов в disk_frame
+    disk_frame.columnconfigure(idx, weight=1)
+
+    tk.Label(disk_subframe, text=f"=== Device: {partition.device} ===",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"Mountpoint: {partition.mountpoint}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"Mountpoint: {partition.mountpoint}",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"File system type: {partition.fstype}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"File system type: {partition.fstype}",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
+
     partition_usage = psutil.disk_usage(partition.mountpoint)
-    tk.Label(disk_frame, text=f"Total Size: {get_size(partition_usage.total)}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"Total Size: {get_size(partition_usage.total)}",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"Used: {get_size(partition_usage.used)}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"Used: {get_size(partition_usage.used)}",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"Free: {get_size(partition_usage.free)}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"Free: {get_size(partition_usage.free)}",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"Percentage: {partition_usage.percent}%", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
+    tk.Label(disk_subframe, text=f"Percentage: {partition_usage.percent}%",
+             bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-    disk_io = psutil.disk_io_counters()
-    tk.Label(disk_frame, text=f"Total read: {get_size(disk_io.read_bytes)}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
-        .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text=f"Total write: {get_size(disk_io.write_bytes)}", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
-        .pack(anchor="w", padx=5, pady=3)
-    tk.Label(disk_frame, text="----------------------", bg=current_bg, fg=current_fg,
-             font=("Helvetica", current_font_size))\
-        .pack(anchor="w", padx=5, pady=3)
+
+    # Получаем информацию по I/O для каждого диска (используя параметр perdisk=True)
+    io_counters = psutil.disk_io_counters(perdisk=True)
+    if partition.device in io_counters:
+        d_io = io_counters[partition.device]
+        tk.Label(disk_subframe, text=f"Total read: {get_size(d_io.read_bytes)}",
+                 bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
+            .pack(anchor="w", padx=5, pady=3)
+        tk.Label(disk_subframe, text=f"Total write: {get_size(d_io.write_bytes)}",
+                 bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
+            .pack(anchor="w", padx=5, pady=3)
+    # tk.Label(disk_subframe, text="----------------------",
+    #          bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
+    #     .pack(anchor="w", padx=5, pady=3)
+
 
 # Функция динамического обновления статистики и графиков
 def update_stats():
