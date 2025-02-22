@@ -7,6 +7,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+# Функция для форматирования размера в байтах
 def get_size(bytes, suffix="B"):
     factor = 1024
     for unit in ["", "K", "M", "G", "T", "P"]:
@@ -44,6 +45,29 @@ def save_settings(bg, fg, font_size, graph_bg, graph_line):
         f.write(f"font_size={font_size}\n")
         f.write(f"graph_bg={graph_bg}\n")
         f.write(f"graph_line={graph_line}\n")
+
+# Функция загрузки настроек ESP (ip и порт) из файла esp_settings.txt
+def load_esp_settings():
+    settings = {"ip": "", "port": ""}
+    try:
+        with open("esp_settings.txt", "r") as f:
+            for line in f:
+                line = line.strip()
+                if '=' in line:
+                    key, value = line.split("=", 1)
+                    settings[key.strip()] = value.strip()
+    except FileNotFoundError:
+        pass
+    return settings
+
+# Функция сохранения настроек ESP (ip и порт) в файл esp_settings.txt
+def save_esp_settings():
+    ip = esp_ip_entry.get()
+    port = esp_port_entry.get()
+    with open("esp_settings.txt", "w") as f:
+        f.write(f"ip={ip}\n")
+        f.write(f"port={port}\n")
+    print(f"ESP настройки сохранены: ip={ip}, port={port}")
 
 # Рекурсивное обновление темы для виджетов
 def update_theme(widget, bg, fg, font):
@@ -175,7 +199,58 @@ os_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 cpu_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 gpu_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 ram_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=5)
-disk_frame.grid(row=2, column=0, columnspan=1, sticky="nsew", padx=5, pady=5)
+disk_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+
+# --- Дополнительное окно для управления ESP32 ---
+sending_data = False
+
+def start_sending():
+    global sending_data
+    sending_data = True
+    esp_ip = esp_ip_entry.get()
+    esp_port = esp_port_entry.get()
+    print(f"Начинаем отправку данных на {esp_ip}:{esp_port}")
+    # Здесь можно добавить логику для отправки данных на ESP32
+
+def stop_sending():
+    global sending_data
+    sending_data = False
+    print("Отправка данных остановлена")
+    # Здесь можно добавить логику для остановки отправки данных
+
+# Фрейм для управления ESP32 (располагается в ряду 2, колонка 1)
+esp_frame = tk.LabelFrame(main_frame, text="ESP32 Control", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
+esp_frame.grid(row=2, column=1, sticky="nsew", padx=5, pady=5)
+
+# Создаем фрейм для ввода IP с кнопкой "Сохранить"
+esp_ip_frame = tk.Frame(esp_frame, bg=current_bg)
+esp_ip_frame.pack(anchor="w", padx=5, pady=3)
+tk.Label(esp_ip_frame, text="IP микроконтроллера:", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+    .pack(side="left")
+esp_ip_entry = tk.Entry(esp_ip_frame, font=("Helvetica", current_font_size))
+esp_ip_entry.pack(side="left", padx=5)
+ip_save_button = tk.Button(esp_ip_frame, text="Сохранить", command=save_esp_settings, font=("Helvetica", current_font_size))
+ip_save_button.pack(side="left", padx=5)
+
+# Создаем фрейм для ввода порта с кнопкой "Сохранить"
+esp_port_frame = tk.Frame(esp_frame, bg=current_bg)
+esp_port_frame.pack(anchor="w", padx=5, pady=3)
+tk.Label(esp_port_frame, text="Порт микроконтроллера:", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+    .pack(side="left")
+esp_port_entry = tk.Entry(esp_port_frame, font=("Helvetica", current_font_size))
+esp_port_entry.pack(side="left", padx=5)
+port_save_button = tk.Button(esp_port_frame, text="Сохранить", command=save_esp_settings, font=("Helvetica", current_font_size))
+port_save_button.pack(side="left", padx=5)
+
+# Загружаем сохранённые ESP-настройки (если есть)
+esp_settings = load_esp_settings()
+esp_ip_entry.insert(0, esp_settings.get("ip", ""))
+esp_port_entry.insert(0, esp_settings.get("port", ""))
+
+start_button = tk.Button(esp_frame, text="Начать отправку данных", font=("Helvetica", current_font_size), command=start_sending)
+start_button.pack(anchor="w", padx=5, pady=3)
+stop_button = tk.Button(esp_frame, text="Закончить отправку данных", font=("Helvetica", current_font_size), command=stop_sending)
+stop_button.pack(anchor="w", padx=5, pady=3)
 
 # --- OS Information ---
 uname = platform.uname()
@@ -198,19 +273,16 @@ cpufreq = psutil.cpu_freq()
 cpu_cores = psutil.cpu_count(logical=False)
 total_cores = psutil.cpu_count(logical=True)
 cpu_usage_value = psutil.cpu_percent(interval=1)
-cpu_name = platform.processor()  # Получаем имя процессора
+cpu_name = platform.processor()
 
-# Создаем два внутренних фрейма: данные слева, график справа
 cpu_data_frame = tk.Frame(cpu_frame, bg=current_bg)
 cpu_graph_frame = tk.Frame(cpu_frame, bg=current_bg)
 cpu_data_frame.pack(side="left", fill="both", expand=True)
 cpu_graph_frame.pack(side="right", fill="both", expand=True)
 
-# Добавляем имя процессора
 tk.Label(cpu_data_frame, text=f"CPU Name: {cpu_name}", bg=current_bg, fg=current_fg,
          font=("Helvetica", current_font_size))\
     .pack(anchor="w", padx=5, pady=3)
-
 tk.Label(cpu_data_frame, text=f"Physical cores: {cpu_cores}", bg=current_bg, fg=current_fg,
          font=("Helvetica", current_font_size))\
     .pack(anchor="w", padx=5, pady=3)
@@ -237,7 +309,6 @@ except AttributeError:
                               font=("Helvetica", current_font_size))
 cpu_temp_label.pack(anchor="w", padx=5, pady=3)
 
-# График CPU (в cpu_graph_frame)
 cpu_history = []
 cpu_fig = plt.Figure(figsize=(3,2), dpi=100)
 cpu_ax = cpu_fig.add_subplot(111)
@@ -245,17 +316,15 @@ cpu_ax.set_ylim(0, 100)
 cpu_line, = cpu_ax.plot([], [], color=current_graph_line)
 cpu_ax.set_facecolor(current_graph_bg)
 cpu_ax.set_title("CPU Usage", color=current_fg, fontsize=current_font_size)
-# Убираем нижнюю разметку оси X:
 cpu_ax.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
 cpu_canvas = FigureCanvasTkAgg(cpu_fig, master=cpu_graph_frame)
 cpu_canvas.get_tk_widget().pack(anchor="w", padx=5, pady=5)
 
 # --- GPU Information ---
 gpu_list_global = GPUtil.getGPUs()
-gpu_load_labels = []  # для динамического обновления загрузки GPU
-gpu_temp_labels = []  # для динамического обновления температуры GPU
+gpu_load_labels = []
+gpu_temp_labels = []
 
-# Создаем два внутренних фрейма: данные слева, график справа
 gpu_data_frame = tk.Frame(gpu_frame, bg=current_bg)
 gpu_graph_frame = tk.Frame(gpu_frame, bg=current_bg)
 gpu_data_frame.pack(side="left", fill="both", expand=True)
@@ -277,9 +346,6 @@ if gpu_list_global:
                               font=("Helvetica", current_font_size))
         temp_label.pack(anchor="w", padx=5, pady=3)
         gpu_temp_labels.append(temp_label)
-        # tk.Label(gpu_data_frame, text=f"UUID: {gpu.uuid}", bg=current_bg, fg=current_fg,
-        #          font=("Helvetica", current_font_size))\
-        #     .pack(anchor="w", padx=5, pady=3)
         tk.Label(gpu_data_frame, text="----------------------", bg=current_bg, fg=current_fg,
                  font=("Helvetica", current_font_size))\
             .pack(anchor="w", padx=5, pady=3)
@@ -287,7 +353,6 @@ else:
     tk.Label(gpu_data_frame, text="No GPU found", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
         .pack(anchor="w", padx=5, pady=3)
 
-# График GPU (в gpu_graph_frame, используется первая GPU)
 if gpu_list_global:
     gpu_history = []
     gpu_fig = plt.Figure(figsize=(3,2), dpi=100)
@@ -303,7 +368,6 @@ if gpu_list_global:
 # --- RAM Information ---
 svmem = psutil.virtual_memory()
 
-# Создаем два внутренних фреймов: данные слева, график справа
 ram_data_frame = tk.Frame(ram_frame, bg=current_bg)
 ram_graph_frame = tk.Frame(ram_frame, bg=current_bg)
 ram_data_frame.pack(side="left", fill="both", expand=True)
@@ -322,7 +386,6 @@ ram_usage_label = tk.Label(ram_data_frame, text=f"RAM Usage: {svmem.percent}%", 
                            font=("Helvetica", current_font_size))
 ram_usage_label.pack(anchor="w", padx=5, pady=3)
 
-# График RAM (в ram_graph_frame)
 ram_history = []
 ram_fig = plt.Figure(figsize=(3,2), dpi=100)
 ram_ax = ram_fig.add_subplot(111)
@@ -336,15 +399,10 @@ ram_canvas.get_tk_widget().pack(anchor="w", padx=5, pady=5)
 
 # --- Disk Information ---
 partitions = psutil.disk_partitions()
-# Очищаем диск-фрейм, если требуется (если обновляем динамически)
 for idx, partition in enumerate(partitions):
-    # Создаем отдельный фрейм для каждого диска (столбец)
     disk_subframe = tk.Frame(disk_frame, bg=current_bg)
-    # Размещаем фрейм в строке 0, в столбце idx
     disk_subframe.grid(row=0, column=idx, sticky="nsew", padx=5, pady=5)
-    # Задаем равномерное распределение столбцов в disk_frame
     disk_frame.columnconfigure(idx, weight=1)
-
     tk.Label(disk_subframe, text=f"=== Device: {partition.device} ===",
              bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
@@ -354,7 +412,6 @@ for idx, partition in enumerate(partitions):
     tk.Label(disk_subframe, text=f"File system type: {partition.fstype}",
              bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-
     partition_usage = psutil.disk_usage(partition.mountpoint)
     tk.Label(disk_subframe, text=f"Total Size: {get_size(partition_usage.total)}",
              bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
@@ -368,8 +425,6 @@ for idx, partition in enumerate(partitions):
     tk.Label(disk_subframe, text=f"Percentage: {partition_usage.percent}%",
              bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
-
-    # Получаем информацию по I/O для каждого диска (используя параметр perdisk=True)
     io_counters = psutil.disk_io_counters(perdisk=True)
     if partition.device in io_counters:
         d_io = io_counters[partition.device]
@@ -379,10 +434,6 @@ for idx, partition in enumerate(partitions):
         tk.Label(disk_subframe, text=f"Total write: {get_size(d_io.write_bytes)}",
                  bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
             .pack(anchor="w", padx=5, pady=3)
-    # tk.Label(disk_subframe, text="----------------------",
-    #          bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
-    #     .pack(anchor="w", padx=5, pady=3)
-
 
 # Функция динамического обновления статистики и графиков
 def update_stats():
@@ -432,6 +483,3 @@ def update_stats():
 
 update_stats()
 root.mainloop()
-
-# чтобы скомпилить файл
-# pyinstaller --onefile --add-data "settings.txt;." pc_info.py
