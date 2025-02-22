@@ -6,6 +6,8 @@ import GPUtil
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import socket
+import json
 
 # Функция для форматирования размера в байтах
 def get_size(bytes, suffix="B"):
@@ -46,7 +48,7 @@ def save_settings(bg, fg, font_size, graph_bg, graph_line):
         f.write(f"graph_bg={graph_bg}\n")
         f.write(f"graph_line={graph_line}\n")
 
-# Функция загрузки настроек ESP (ip и порт) из файла esp_settings.txt
+# Функция загрузки настроек ESP (ip и port) из файла esp_settings.txt
 def load_esp_settings():
     settings = {"ip": "", "port": ""}
     try:
@@ -60,7 +62,7 @@ def load_esp_settings():
         pass
     return settings
 
-# Функция сохранения настроек ESP (ip и порт) в файл esp_settings.txt
+# Функция сохранения настроек ESP (ip и port) в файл esp_settings.txt
 def save_esp_settings():
     ip = esp_ip_entry.get()
     port = esp_port_entry.get()
@@ -157,6 +159,7 @@ def open_settings():
     tk.Button(settings_win, text="Apply", command=apply_settings, font=("Helvetica", 10)).pack(pady=10)
     settings_win.grab_set()  # делаем окно модальным
 
+
 # Загружаем настройки при запуске
 settings = load_settings()
 current_bg = settings.get("bg", "black")
@@ -189,11 +192,16 @@ main_frame.rowconfigure(1, weight=1)
 main_frame.rowconfigure(2, weight=1)
 
 # Создаем LabelFrame для каждого раздела
-os_frame = tk.LabelFrame(main_frame, text="OS Information", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
-cpu_frame = tk.LabelFrame(main_frame, text="CPU Information", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
-gpu_frame = tk.LabelFrame(main_frame, text="GPU Information", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
-ram_frame = tk.LabelFrame(main_frame, text="RAM Information", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
-disk_frame = tk.LabelFrame(main_frame, text="Disk Information", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
+os_frame = tk.LabelFrame(main_frame, text="OS Information", bg=current_bg, fg=current_fg,
+                         font=("Helvetica", current_font_size))
+cpu_frame = tk.LabelFrame(main_frame, text="CPU Information", bg=current_bg, fg=current_fg,
+                          font=("Helvetica", current_font_size))
+gpu_frame = tk.LabelFrame(main_frame, text="GPU Information", bg=current_bg, fg=current_fg,
+                          font=("Helvetica", current_font_size))
+ram_frame = tk.LabelFrame(main_frame, text="RAM Information", bg=current_bg, fg=current_fg,
+                          font=("Helvetica", current_font_size))
+disk_frame = tk.LabelFrame(main_frame, text="Disk Information", bg=current_bg, fg=current_fg,
+                           font=("Helvetica", current_font_size))
 
 os_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 cpu_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
@@ -204,42 +212,97 @@ disk_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
 # --- Дополнительное окно для управления ESP32 ---
 sending_data = False
 
+def send_metrics():
+    if not sending_data:
+        return
+    try:
+        # Собираем данные по CPU
+        cpu_model = platform.processor()
+        cpufreq = psutil.cpu_freq()
+        cpu_max_freq = cpufreq.max if cpufreq else 0
+        cpu_load = psutil.cpu_percent(interval=0)
+
+        # Собираем данные по GPU (первая найденная)
+        gpu_model = "N/A"
+        gpu_temp = "N/A"
+        gpu_load = "N/A"
+        gpu_list = GPUtil.getGPUs()
+        if gpu_list:
+            gpu = gpu_list[0]
+            gpu_model = gpu.name
+            gpu_temp = gpu.temperature
+            gpu_load = gpu.load * 100
+
+        # Собираем данные по RAM
+        svmem = psutil.virtual_memory()
+        ram_total = svmem.total
+        ram_load = svmem.percent
+
+        # Формируем словарь с данными
+        metrics = {
+            "cpu_model": cpu_model,
+            "cpu_load": cpu_load,
+            "cpu_max_freq": cpu_max_freq,
+            "gpu_model": gpu_model,
+            "gpu_temp": gpu_temp,
+            "gpu_load": gpu_load,
+            "ram_total": ram_total,
+            "ram_load": ram_load
+        }
+        data_str = json.dumps(metrics)
+        print("Отправка данных:", data_str)
+
+        # Читаем ESP-настройки (ip и port) из файла
+        esp_settings = load_esp_settings()
+        esp_ip = esp_settings.get("ip", "")
+        esp_port = int(esp_settings.get("port", "0"))
+
+        # Отправка по UDP
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.sendto(data_str.encode('utf-8'), (esp_ip, esp_port))
+    except Exception as e:
+        print("Ошибка при отправке данных:", e)
+    # Планируем следующую отправку через 2000 мс, если отправка всё ещё включена
+    if sending_data:
+        root.after(2000, send_metrics)
+
 def start_sending():
     global sending_data
     sending_data = True
-    esp_ip = esp_ip_entry.get()
-    esp_port = esp_port_entry.get()
-    print(f"Начинаем отправку данных на {esp_ip}:{esp_port}")
-    # Здесь можно добавить логику для отправки данных на ESP32
+    print("Начинаем отправку данных на ESP32")
+    send_metrics()
 
 def stop_sending():
     global sending_data
     sending_data = False
     print("Отправка данных остановлена")
-    # Здесь можно добавить логику для остановки отправки данных
 
-# Фрейм для управления ESP32 (располагается в ряду 2, колонка 1)
-esp_frame = tk.LabelFrame(main_frame, text="ESP32 Control", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))
+# Фрейм для управления ESP32
+esp_frame = tk.LabelFrame(main_frame, text="ESP32 Control", bg=current_bg, fg=current_fg,
+                          font=("Helvetica", current_font_size))
 esp_frame.grid(row=2, column=1, sticky="nsew", padx=5, pady=5)
 
-# Создаем фрейм для ввода IP с кнопкой "Сохранить"
+# Фрейм для ввода IP с кнопкой "Сохранить"
 esp_ip_frame = tk.Frame(esp_frame, bg=current_bg)
 esp_ip_frame.pack(anchor="w", padx=5, pady=3)
 tk.Label(esp_ip_frame, text="IP микроконтроллера:", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
     .pack(side="left")
 esp_ip_entry = tk.Entry(esp_ip_frame, font=("Helvetica", current_font_size))
 esp_ip_entry.pack(side="left", padx=5)
-ip_save_button = tk.Button(esp_ip_frame, text="Сохранить", command=save_esp_settings, font=("Helvetica", current_font_size))
+ip_save_button = tk.Button(esp_ip_frame, text="Сохранить", command=save_esp_settings,
+                           font=("Helvetica", current_font_size))
 ip_save_button.pack(side="left", padx=5)
 
-# Создаем фрейм для ввода порта с кнопкой "Сохранить"
+# Фрейм для ввода порта с кнопкой "Сохранить"
 esp_port_frame = tk.Frame(esp_frame, bg=current_bg)
 esp_port_frame.pack(anchor="w", padx=5, pady=3)
-tk.Label(esp_port_frame, text="Порт микроконтроллера:", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+tk.Label(esp_port_frame, text="Порт микроконтроллера:", bg=current_bg, fg=current_fg,
+         font=("Helvetica", current_font_size))\
     .pack(side="left")
 esp_port_entry = tk.Entry(esp_port_frame, font=("Helvetica", current_font_size))
 esp_port_entry.pack(side="left", padx=5)
-port_save_button = tk.Button(esp_port_frame, text="Сохранить", command=save_esp_settings, font=("Helvetica", current_font_size))
+port_save_button = tk.Button(esp_port_frame, text="Сохранить", command=save_esp_settings,
+                             font=("Helvetica", current_font_size))
 port_save_button.pack(side="left", padx=5)
 
 # Загружаем сохранённые ESP-настройки (если есть)
@@ -247,25 +310,29 @@ esp_settings = load_esp_settings()
 esp_ip_entry.insert(0, esp_settings.get("ip", ""))
 esp_port_entry.insert(0, esp_settings.get("port", ""))
 
-start_button = tk.Button(esp_frame, text="Начать отправку данных", font=("Helvetica", current_font_size), command=start_sending)
+start_button = tk.Button(esp_frame, text="Начать отправку данных", font=("Helvetica", current_font_size),
+                         command=start_sending)
 start_button.pack(anchor="w", padx=5, pady=3)
-stop_button = tk.Button(esp_frame, text="Закончить отправку данных", font=("Helvetica", current_font_size), command=stop_sending)
+stop_button = tk.Button(esp_frame, text="Закончить отправку данных", font=("Helvetica", current_font_size),
+                        command=stop_sending)
 stop_button.pack(anchor="w", padx=5, pady=3)
 
 # --- OS Information ---
 uname = platform.uname()
 boot_time_timestamp = psutil.boot_time()
 bt = datetime.fromtimestamp(boot_time_timestamp)
-tk.Label(os_frame, text=f"System: {uname.system}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+tk.Label(os_frame, text=f"System: {uname.system}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
-tk.Label(os_frame, text=f"Node name: {uname.node}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+tk.Label(os_frame, text=f"Node name: {uname.node}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
-tk.Label(os_frame, text=f"Release: {uname.release}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+tk.Label(os_frame, text=f"Release: {uname.release}", bg=current_bg, fg=current_fg,
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
-tk.Label(os_frame, text=f"Version: {uname.version}", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+tk.Label(os_frame, text=f"Version: {uname.version}", bg=current_bg, fg=current_fg,
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
 tk.Label(os_frame, text=f"Boot Time: {bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}",
-         bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+         bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
 
 # --- CPU Information ---
@@ -281,17 +348,18 @@ cpu_data_frame.pack(side="left", fill="both", expand=True)
 cpu_graph_frame.pack(side="right", fill="both", expand=True)
 
 tk.Label(cpu_data_frame, text=f"CPU Name: {cpu_name}", bg=current_bg, fg=current_fg,
-         font=("Helvetica", current_font_size))\
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
 tk.Label(cpu_data_frame, text=f"Physical cores: {cpu_cores}", bg=current_bg, fg=current_fg,
-         font=("Helvetica", current_font_size))\
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
 tk.Label(cpu_data_frame, text=f"Total cores: {total_cores}", bg=current_bg, fg=current_fg,
-         font=("Helvetica", current_font_size))\
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
-tk.Label(cpu_data_frame, text=f"Max Frequency: {cpufreq.max:.2f} Mhz", bg=current_bg, fg=current_fg,
-         font=("Helvetica", current_font_size))\
-    .pack(anchor="w", padx=5, pady=3)
+# Создаём label для обновления max frequency
+max_freq_label = tk.Label(cpu_data_frame, text=f"Max Frequency: {cpufreq.max:.2f} Mhz", bg=current_bg, fg=current_fg,
+                          font=("Helvetica", current_font_size))
+max_freq_label.pack(anchor="w", padx=5, pady=3)
 cpu_usage_label = tk.Label(cpu_data_frame, text=f"Total CPU Usage: {cpu_usage_value}%", bg=current_bg, fg=current_fg,
                            font=("Helvetica", current_font_size))
 cpu_usage_label.pack(anchor="w", padx=5, pady=3)
@@ -310,7 +378,7 @@ except AttributeError:
 cpu_temp_label.pack(anchor="w", padx=5, pady=3)
 
 cpu_history = []
-cpu_fig = plt.Figure(figsize=(3,2), dpi=100)
+cpu_fig = plt.Figure(figsize=(3, 2), dpi=100)
 cpu_ax = cpu_fig.add_subplot(111)
 cpu_ax.set_ylim(0, 100)
 cpu_line, = cpu_ax.plot([], [], color=current_graph_line)
@@ -333,10 +401,10 @@ gpu_graph_frame.pack(side="right", fill="both", expand=True)
 if gpu_list_global:
     for gpu in gpu_list_global:
         tk.Label(gpu_data_frame, text=f"GPU name: {gpu.name}", bg=current_bg, fg=current_fg,
-                 font=("Helvetica", current_font_size))\
+                 font=("Helvetica", current_font_size)) \
             .pack(anchor="w", padx=5, pady=3)
         tk.Label(gpu_data_frame, text=f"Total memory: {gpu.memoryTotal} MB", bg=current_bg, fg=current_fg,
-                 font=("Helvetica", current_font_size))\
+                 font=("Helvetica", current_font_size)) \
             .pack(anchor="w", padx=5, pady=3)
         load_label = tk.Label(gpu_data_frame, text=f"Load: {gpu.load * 100:.1f}%", bg=current_bg, fg=current_fg,
                               font=("Helvetica", current_font_size))
@@ -347,15 +415,15 @@ if gpu_list_global:
         temp_label.pack(anchor="w", padx=5, pady=3)
         gpu_temp_labels.append(temp_label)
         tk.Label(gpu_data_frame, text="----------------------", bg=current_bg, fg=current_fg,
-                 font=("Helvetica", current_font_size))\
+                 font=("Helvetica", current_font_size)) \
             .pack(anchor="w", padx=5, pady=3)
 else:
-    tk.Label(gpu_data_frame, text="No GPU found", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size))\
+    tk.Label(gpu_data_frame, text="No GPU found", bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
         .pack(anchor="w", padx=5, pady=3)
 
 if gpu_list_global:
     gpu_history = []
-    gpu_fig = plt.Figure(figsize=(3,2), dpi=100)
+    gpu_fig = plt.Figure(figsize=(3, 2), dpi=100)
     gpu_ax = gpu_fig.add_subplot(111)
     gpu_ax.set_ylim(0, 100)
     gpu_line, = gpu_ax.plot([], [], color=current_graph_line)
@@ -374,7 +442,7 @@ ram_data_frame.pack(side="left", fill="both", expand=True)
 ram_graph_frame.pack(side="right", fill="both", expand=True)
 
 tk.Label(ram_data_frame, text=f"Total RAM: {get_size(svmem.total)}", bg=current_bg, fg=current_fg,
-         font=("Helvetica", current_font_size))\
+         font=("Helvetica", current_font_size)) \
     .pack(anchor="w", padx=5, pady=3)
 ram_available_label = tk.Label(ram_data_frame, text=f"Available RAM: {get_size(svmem.available)}", bg=current_bg,
                                fg=current_fg, font=("Helvetica", current_font_size))
@@ -387,7 +455,7 @@ ram_usage_label = tk.Label(ram_data_frame, text=f"RAM Usage: {svmem.percent}%", 
 ram_usage_label.pack(anchor="w", padx=5, pady=3)
 
 ram_history = []
-ram_fig = plt.Figure(figsize=(3,2), dpi=100)
+ram_fig = plt.Figure(figsize=(3, 2), dpi=100)
 ram_ax = ram_fig.add_subplot(111)
 ram_ax.set_ylim(0, 100)
 ram_line, = ram_ax.plot([], [], color=current_graph_line)
@@ -435,6 +503,7 @@ for idx, partition in enumerate(partitions):
                  bg=current_bg, fg=current_fg, font=("Helvetica", current_font_size)) \
             .pack(anchor="w", padx=5, pady=3)
 
+
 # Функция динамического обновления статистики и графиков
 def update_stats():
     # CPU
@@ -446,6 +515,9 @@ def update_stats():
     cpu_line.set_data(range(len(cpu_history)), cpu_history)
     cpu_ax.set_xlim(0, max(60, len(cpu_history)))
     cpu_canvas.draw()
+    # Обновляем max frequency (если изменилось)
+    new_cpufreq = psutil.cpu_freq()
+    max_freq_label.config(text=f"Max Frequency: {new_cpufreq.max:.2f} Mhz")
 
     # RAM
     svmem = psutil.virtual_memory()
@@ -480,6 +552,7 @@ def update_stats():
         gpu_canvas.draw()
 
     root.after(1000, update_stats)
+
 
 update_stats()
 root.mainloop()
